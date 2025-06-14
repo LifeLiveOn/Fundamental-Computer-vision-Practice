@@ -19,52 +19,47 @@ res = urllib.request.urlopen(url)
 image = np.asarray(bytearray(res.read()), dtype="uint8")
 # Decode the image to a format of Width x Height x Channels
 img = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
+height, width, _ = img.shape
 
 
 def RGBtoHSV(img):
     """
-    Convert an RGB image to HSV format.
-    Parameters:
-        img (numpy.ndarray): Input image in BGR format.
-        Returns: H, S , V (numpy.ndarray): Hue, Saturation, and Value channels."""
-    img_array = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # convert to RGB
+    Fully vectorized RGB to HSV conversion using NumPy.
+    """
+    # Convert to RGB and normalize to [0, 1]
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
 
-    #simulate HSV conversion V = max(R, G, B) in range(0,1)
-    V = np.max(img_array, axis=2) / 255 # axis 2 corresponds to the color channels (R, G, B) from h x w x 3
-    # example V : # [[ R G B] ] 2d array of shape (height, width) where each pixel is max of (R, G, B)
+    max_c = np.max(rgb, axis=2)
+    min_c = np.min(rgb, axis=2)
+    delta = max_c - min_c
 
-    # print("V shape:", V.shape)
+    # Hue
+    H = np.zeros_like(max_c)
 
-    # calculate chroma V - min RGB
-    C = V - (np.min(img_array, axis=2) / 255) # normalize to [0, 1]
+    mask = delta != 0
+    mask_r = (max_c == R) & mask
+    mask_g = (max_c == G) & mask
+    mask_b = (max_c == B) & mask
 
-    # calculate saturation C / V if V > 0 shape equal to V
-    S = np.zeros_like(V) # init 0 
-    S_mask = V > 0 
-    S[S_mask] = C[S_mask] / V[S_mask]
+    # for R max → base sector 0°
+    H[mask_r] = (60 * ((G[mask_r] - B[mask_r]) / delta[mask_r]))
+    H[mask_g] = (60 * ((B[mask_g] - R[mask_g]) / delta[mask_g]) + 120)
+    H[mask_b] = (60 * ((R[mask_b] - G[mask_b]) / delta[mask_b]) + 240)
 
-    
-    # calculate hue
-    H = np.zeros_like(V, dtype=np.float32)  # Initialize H with zeros same shape as V
-    mask = C > 0 # mask would be a boolean array where C > 0 ex: # [[False False False]]
+    # Saturation
+    S = np.zeros_like(max_c)
+    S[max_c != 0] = delta[max_c != 0] / max_c[max_c != 0]
 
-    # fetch (h,w,R), (h,w,G), (h,w,B) from img_array
-    R, G , B = img_array[..., 0] / 255, img_array[..., 1] / 255, img_array[..., 2] / 255
+    # Value
+    V = max_c
 
-    # only when C > 0
-    mask_R = (R == V) & mask  # if R[i,j] == V[i,j] and C[i,j] > 0
-    mask_G = (G == V) & mask  # same for G and B
-    mask_B = (B == V) & mask  
-    
-    H[mask_R] = ((G[mask_R] - B[mask_R]) / C[mask_R]) % 6  # H = (G - B) / C
-    H[mask_G] = ((B[mask_G] - R[mask_G]) / C[mask_G]) + 2  # H = (B - R) / C + 2
-    H[mask_B] = ((R[mask_B] - G[mask_B]) / C[mask_B]) + 4  # H = (R - G) / C + 4
-    H = (H * 60) % 360  # Convert to degrees
+    return H, S, V
 
-    return H, S, V  # Stack H, S, V into a single array with shape (height, width, 3)
 
-#convert HSV back to RGB
+# convert HSV back to RGB
+
+
 def HSVtoRGB(H, S, V):
     """
     Convert HSV channels to RGB format.
@@ -74,8 +69,8 @@ def HSVtoRGB(H, S, V):
         V (numpy.ndarray): Value channel in range [0, 1]."""
     C = V * S  # Chroma shape is same as V
     H_ = H / 60  # Normalize H to [0, 6]
-    X = C * (1 - np.abs(H_ % 2 - 1))  
-    m = V - C 
+    X = C * (1 - np.abs(H_ % 2 - 1))
+    m = V - C
 
     R, G, B = np.zeros_like(V), np.zeros_like(V), np.zeros_like(V)
 
@@ -104,37 +99,40 @@ def HSVtoRGB(H, S, V):
     R[mask5], G[mask5], B[mask5] = C[mask5], 0, X[mask5]
 
     # Add m to each channel to match the value
-    R += m
-    G += m
-    B += m
     # axis -1 mean let it stack the last dimension
-    return np.stack(( B, G, R), axis=2) * 255 # Stack B, G, R into a single array with shape (height, width, 3) and scale to [0, 255]
+    # Stack B, G, R into a single array with shape (height, width, 3) and scale to [0, 255]
+    return np.stack((B + m, G + m, R + m), axis=2) * 255
 
 
-#make a decorator to warn value in range
+# make a decorator to warn value in range
 def warn_float(min_val, max_val):
     def checker(value):
         f = float(value)
         if f < min_val or f > max_val:
-            raise argparse.ArgumentTypeError(f"Value must be in range [{min_val}, {max_val}]")
+            raise argparse.ArgumentTypeError(
+                f"Value must be in range [{min_val}, {max_val}]")
         return f
     return checker
 
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Tune HSV hyperparameters for image transformation.")
+    parser = argparse.ArgumentParser(
+        description="Tune HSV hyperparameters for image transformation.")
     # use -- if need to pass arguments from command line, if not use order ex: --h_shift 30 --s_scale 1.2 --v_scale 0.8
-    parser.add_argument("h_shift", type=warn_float(-360, 360), default=0, help="Hue shift in degrees (-360, 360).", ) # shift hue by degrees, if reach 360 it will wrap around to 0
-    parser.add_argument("s_scale", type=warn_float(-1, 1), default=1.0, help="Saturation scale (e.g. 0 = no change).",) # deconstruct the colors to gray if reach 0
-    parser.add_argument("v_scale", type=warn_float(-1, 1), default=1.0, help="Brightness (value) scale (e.g. 0 = no change).", ) #value is for lightness
+    # shift hue by degrees, if reach 360 it will wrap around to 0
+    parser.add_argument("h_shift", type=warn_float(-360, 360),
+                        default=0, help="Hue shift in degrees (-360, 360).", )
+    parser.add_argument("s_scale", type=warn_float(-1, 1), default=1.0,
+                        help="Saturation scale (e.g. 0 = no change).",)  # deconstruct the colors to gray if reach 0
+    parser.add_argument("v_scale", type=warn_float(-1, 1), default=1.0,
+                        help="Brightness (value) scale (e.g. 0 = no change).", )  # value is for lightness
     args = parser.parse_args()
 
     # Convert to HSV
     H, S, V = RGBtoHSV(img)
 
     # Apply hyperparameters
-    H = (H + args.h_shift) % 360 # ensure H is in range [0, 360]
+    H = (H + args.h_shift) % 360  # Wrap around hue to stay within [0, 360)
     S = np.clip(S + args.s_scale, 0, 1)
     V = np.clip(V + args.v_scale, 0, 1)
 
@@ -143,6 +141,7 @@ if __name__ == "__main__":
 
     # Show the results
     cv2.imshow("Original Image", img)
-    cv2.imshow("Converted Image", img_rgb.astype(np.uint8))  # Convert to uint8 for display
+    cv2.imshow("Converted Image", img_rgb.astype(
+        np.uint8))  # Convert to uint8 for display
     cv2.waitKey(0)
     cv2.destroyAllWindows()
