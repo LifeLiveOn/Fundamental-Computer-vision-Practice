@@ -28,31 +28,28 @@ def RGBtoHSV(img):
     """
     # Convert to RGB and normalize to [0, 1]
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-    R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    R, G, B = np.split(rgb, 3, axis=2) #split the channels by 3 targeting the last dimension
+    R,G,B = R.squeeze(), G.squeeze(), B.squeeze()  # Remove singleton d
 
-    max_c = np.max(rgb, axis=2)
+    V = np.max(rgb, axis=2)
     min_c = np.min(rgb, axis=2)
-    delta = max_c - min_c
+    C = V - min_c
 
     # Hue
-    H = np.zeros_like(max_c)
-
-    mask = delta != 0
-    mask_r = (max_c == R) & mask
-    mask_g = (max_c == G) & mask
-    mask_b = (max_c == B) & mask
+    H = np.zeros_like(V)
+    mask_r = np.where((V == R) & (C != 0))  # R is max and C is not zero
+    mask_g = np.where((V == G) & (C != 0))
+    mask_b = np.where((V == B) & (C != 0))
 
     # for R max → base sector 0°
-    H[mask_r] = (60 * ((G[mask_r] - B[mask_r]) / delta[mask_r]))
-    H[mask_g] = (60 * ((B[mask_g] - R[mask_g]) / delta[mask_g]) + 120)
-    H[mask_b] = (60 * ((R[mask_b] - G[mask_b]) / delta[mask_b]) + 240)
+    H[mask_r] = (60 * ((G[mask_r] - B[mask_r]) / C[mask_r]))
+    H[mask_g] = (60 * ((B[mask_g] - R[mask_g]) / C[mask_g]) + 120)
+    H[mask_b] = (60 * ((R[mask_b] - G[mask_b]) / C[mask_b]) + 240)
 
     # Saturation
-    S = np.zeros_like(max_c)
-    S[max_c != 0] = delta[max_c != 0] / max_c[max_c != 0]
-
-    # Value
-    V = max_c
+    S = np.zeros_like(V)
+    mask_v = V != 0
+    S[mask_v] = C[mask_v] / V[mask_v]
 
     return H, S, V
 

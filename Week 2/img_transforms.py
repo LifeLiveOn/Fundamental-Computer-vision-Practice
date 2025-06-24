@@ -53,26 +53,9 @@ def random_crop(img, crop_size):
     return crop_img
 
 
-# cv2.imshow("Cropped Image", random_crop(img=img, crop_size=(120, 120)))
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-
-def naive_extract_patch(img, size):
-    H, W = img.shape[:2]
-    rows, cols = H // size, W // size  # number of patches in each dimension
-
-    patches = np.zeros((rows, cols, size, size))
-
-    # fill in the patches
-    for i in range(rows):
-        for j in range(cols):
-            start_row = i * size
-            start_col = j * size
-            patches[i, j] = img[start_row:start_row +
-                                size, start_col:start_col + size]
-    return patches
-
+cv2.imshow("Cropped Image", random_crop(img=img, crop_size=(120, 120)))
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 def extract_patches(img, patch_size):
     H, W, C = img.shape
@@ -100,34 +83,20 @@ def extract_patches(img, patch_size):
                img.strides[0],  # next row inside patch
                img.strides[1],  # move col inside patch
                img.strides[2])  # move across chanel
-    # Create a sliding window view in our rule
+    # Create a sliding window view base on our rules 
     patches = stride_tricks.as_strided(img, shape=shape, strides=strides)
     return patches
 
-
-patches = extract_patches(img, patch_size=6)
-# print(patches)
-# cv2.imshow("patches", patches[5, 7].astype(np.uint8))
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
+patches = extract_patches(img, patch_size=50) #each of size 50x50
+cv2.imshow("Extracted Patch", patches[0, 0].astype(np.uint8))
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 def resize_img(img, factor):
     H, W, C = img.shape
     new_H = int(H * factor)
     new_W = int(W * factor)
     img_out = np.zeros((new_H, new_W, C), dtype=img.dtype)
-    """naive approach using for loops"""
-    # for i in range(new_H):
-    #     for j in range(new_W):
-    #         # Calculate the corresponding pixel in the original image
-    #         orig_i = int(i / factor)
-    #         orig_j = int(j / factor)
-    #         # clip to ensure we don't go out of bounds
-    #         orig_i = min(orig_i, H - 1)
-    #         orig_j = min(orig_j, W - 1)
-
-    #         img_out[i, j] = img[orig_i, orig_j]
     """Vectorized approach using NumPy"""
     grid_y = np.arange(0, new_H)
     grid_x = np.arange(0, new_W)
@@ -148,9 +117,9 @@ def resize_img(img, factor):
     return img[orig_y, orig_x, :]
 
 
-# cv2.imshow("Resized Image", resize_img(img, factor=0.5).astype(np.uint8))
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+cv2.imshow("Resized Image", resize_img(img, factor=0.5).astype(np.uint8))
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 
 def color_jitter(img, hue, saturation, value):
@@ -167,7 +136,8 @@ def color_jitter(img, hue, saturation, value):
     return img_rgb.astype(np.uint8)
 
 
-# cv2.imshow("Color Jittered Image", color_jitter(
-#     img, hue=30, saturation=0.2, value=0.2))
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+cv2.imshow("Color Jittered Image", color_jitter(
+    img, hue=30, saturation=0.2, value=0.2))
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
