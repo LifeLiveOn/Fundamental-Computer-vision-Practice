@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.svm import LinearSVC
 
 
-def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, vocab_size=100):
+def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, vocab_size=200):
     """
     Extract SIFT features from images and train or test an SVM classifier.
 
@@ -18,7 +18,7 @@ def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, v
         svm: Trained SVM model (required if train=False).
         kmeans: Trained KMeans model (required if train=False).
         tfidf: Trained TfidfTransformer (required if train=False).
-        vocab_size: Size of the visual vocabulary (default 100).
+        vocab_size: Size of the visual vocabulary (default 200).
 
     Returns:
         If train: dict with trained models and accuracy.
@@ -41,20 +41,20 @@ def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, v
             pass
 
     if len(sift_features) == 0:
-        print("No SIFT features extracted from any image.")
+        print("No SIFT features extracted")
         return None
 
     if train:
         # Training phase
         stack_sift_features = np.concatenate(sift_features)
-        print(f"Total SIFT descriptors: {stack_sift_features.shape[0]}")
+        print(f"Total SIFT features: {stack_sift_features.shape[0]}")
         kmeans = KMeans(n_clusters=vocab_size, random_state=23)
         kmeans.fit(stack_sift_features)
-        print(f"Created vocabulary with {vocab_size} clusters")
+        # print(f"Created vocabulary with {vocab_size} clusters")
 
     # Encoding features
     image_histograms = []
-    for feature in tqdm(sift_features, desc="Encoding SIFT features"):
+    for feature in tqdm(sift_features, desc="Converting features to histograms"):
         clusters = kmeans.predict(feature)
         histogram, _ = np.histogram(
             clusters, bins=vocab_size, range=(0, vocab_size))
@@ -68,7 +68,7 @@ def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, v
         svm = LinearSVC(random_state=23)
         svm.fit(image_histograms_tfidf, y_features)
         accuracy = svm.score(image_histograms_tfidf, y_features)
-        print(f"SVM accuracy on training data: {accuracy * 100:.2f}%")
+        print(f"SVM accuracy on training data (SIFT): {accuracy * 100:.2f}%")
         return image_histograms_np, y_features, svm, kmeans, tfidf
     else:
         if svm is None or kmeans is None or tfidf is None:
@@ -76,5 +76,5 @@ def extract_sift_features(X, y, train=True, svm=None, kmeans=None, tfidf=None, v
                 "svm, kmeans, and tfidf must be provided for testing.")
         image_histograms_tfidf = tfidf.transform(image_histograms_np)
         accuracy = svm.score(image_histograms_tfidf, y_features)
-        print(f"SVM accuracy on test data: {accuracy * 100:.2f}%")
+        print(f"SVM accuracy on test data (SIFT): {accuracy * 100:.2f}%")
         return image_histograms_np, y_features

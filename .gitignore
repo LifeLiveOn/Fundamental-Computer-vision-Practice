@@ -11,3 +11,9 @@ wheels/
 
 #database files
 *.npz
+*.zip
+*.ckpt
+*.tgz
+*.JPEG
+*.png
+*.jpg

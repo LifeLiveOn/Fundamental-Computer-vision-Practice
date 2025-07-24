@@ -42,13 +42,17 @@ if __name__ == "__main__":
         svm=svm_hog,
         kmeans=kmeans_hog, tfidf=tfidf_hog)
     # TODO: Save the extracted features to a file
-    np.savez('cifar10_sift_bow.npz',
-             X_train=x_train_sift,
-             y_train=y_train_sift,
-             X_test=x_test_sift,
-             y_test=y_test_sift)
-    np.savez('cifar10_hog_bow.npz',
-             X_train=x_train_hog,
-             y_train=y_train_hog,
-             X_test=x_test_hog,
-             y_test=y_test_hog)
+    # np.savez('cifar10_sift_bow.npz',
+    #          X_train=x_train_sift,
+    #          y_train=y_train_sift,
+    #          X_test=x_test_sift,
+    #          y_test=y_test_sift)
+    # np.savez('cifar10_hog_bow.npz',
+    #          X_train=x_train_hog,
+    #          y_train=y_train_hog,
+    #          X_test=x_test_hog,
+    #          y_test=y_test_hog)
+
+# SIFT IS BETTER THAN HOG DUE TO invariant to rotation, scale and translation, they can capture more complex features of the same class
+# HOG is more suitable for object detection and recognition tasks where the objects are not rotated or scaled, it is also faster to compute than SIFT
+# BUT IN THIS ASSIGNMENT, HOG IS BETTER THAN SIFT DUE TO THE SMALL SIZE OF THE IMAGES (32x32) its hard to draw keypoints and descriptors from low resolution images
